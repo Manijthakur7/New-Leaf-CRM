@@ -18,10 +18,13 @@
   function init(){
     if (ready) return;
     db.load();
-    if (db.meta().seedVersion !== NL.config.DEMO.SEED_VERSION || !db.all('users').length){
+    // window.NL_DEMO_CLEAN (set in runtime-config.js of a published demo) starts the demo with leads but no history.
+    const clean = typeof window !== 'undefined' && !!window.NL_DEMO_CLEAN, version = NL.config.DEMO.SEED_VERSION + (clean ? '-clean' : '');
+    if (db.meta().seedVersion !== version || !db.all('users').length){
       db.reset();
       NL.seed.run(db, helpers);
-      db.setSeedVersion(NL.config.DEMO.SEED_VERSION);
+      if (clean) NL.seed.clearHistory(db);
+      db.setSeedVersion(version);
       db.flush();
     }
     if (NL.seed.upgrade(db)) db.flush();

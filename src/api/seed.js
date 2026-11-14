@@ -440,5 +440,13 @@
     });
     return changed;
   }
-  NL.seed = { run, upgrade, DEFAULT_SETTINGS, DEMO_PASSWORD, DEMO_ACCOUNTS };
+  /* Clean demo: keeps users, masters, campaigns and the sample leads, but no history —
+     no calls, notes, follow-ups, activity, notifications, audit entries or downstream
+     records (students, applications, documents, payments). Every lead starts at New. */
+  function clearHistory(db){
+    ['students', 'applications', 'documents', 'payments', 'calls', 'followups', 'notes', 'activities', 'audit', 'notifications', 'mailbox'].forEach(t => db.replaceAll(t, []));
+    db.all('leads').forEach(l => db.update('leads', l.id, { stage: 'New', status: 'Active', studentId: null, lastContactAt: null, nextFollowupAt: null,
+      stageHistory: [{ stage: 'New', at: l.createdAt, by: l.createdBy || null }], outcome: '', subOutcome: '', outcomeAt: null, outcomeBy: null, outcomeSource: '', score: 0 }));
+  }
+  NL.seed = { run, upgrade, clearHistory, DEFAULT_SETTINGS, DEMO_PASSWORD, DEMO_ACCOUNTS };
 })();
