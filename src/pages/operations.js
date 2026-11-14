@@ -86,6 +86,8 @@
       { name: 'mobile', label: 'Phone', type: 'tel', required: true }, { name: 'jobTitle', label: 'Job title' },
       { name: 'employeeId', label: 'Employee ID' }, { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS, placeholder: '— None —' },
       { name: 'teamId', label: 'Team', type: 'select', options: () => st.options.teams(), placeholder: '— No team —' },
+      edit || !st.can('users.assign_role') ? null : { name: 'role', label: 'Role', type: 'select', required: true, full: true, options: grantableRoles().filter(r => r.id !== 'unassigned').map(r => ({ value: r.id, label: r.name })), default: 'counsellor', placeholder: false,
+        help: 'Decides which modules and records this user can open. You can change it later from the Users list.' },
       edit ? null : { section: 'Onboarding' },
       edit ? null : { name: 'onboarding', label: 'How should they get access?', type: 'select', full: true, placeholder: false, default: 'invite',
         options: [{ value: 'invite', label: 'Email an invitation to set their own password (recommended)' }, { value: 'password', label: 'Set a temporary password that I share securely' }] },
@@ -97,8 +99,9 @@
   }
   async function createUser(){
     await st.loadMasters();
-    const res = await ui.formModal({ title: 'Create user — step 1 of 2', size: 'lg', fields: userFields(false),
-      intro: html`<b>Step 1:</b> create the account. <b>Step 2:</b> assign a role — new users start as <span class="badge b-gray">Unassigned</span> with no module access.`,
+    const canRole = st.can('users.assign_role');
+    const res = await ui.formModal({ title: 'Create user', size: 'lg', fields: userFields(false),
+      intro: canRole ? html`Choose the <b>Role</b> below — it decides what the user can access from their first sign-in.` : html`New users start as <span class="badge b-gray">Unassigned</span> until an administrator assigns a role.`,
       onMount: (m, form) => {
         const sel = form.querySelector('[name=onboarding]');
         const sync = () => { const pw = sel.value === 'password'; ['password', 'markEmailVerified'].forEach(n => { const f = form.querySelector(`[data-field="${n}"]`); if (f) f.hidden = !pw; }); };
@@ -109,8 +112,10 @@
     if (!res) return;
     ui.toast(res.accountStatus === 'PENDING_VERIFICATION' ? `Invitation sent to ${res.email}` : `User ${res.fullName} created`); showDemoMail(res);
     await st.loadMasters(true); A.changed('users');
-    const next = await ui.confirm({ title: 'Step 2 — assign a role', message: `${res.fullName} is created with role “Unassigned”. Assign a role now?`, confirmText: 'Assign role' });
-    if (next && st.can('users.assign_role')) assignRole(res);
+    if (res.role === 'unassigned' && canRole){
+      const next = await ui.confirm({ title: 'Assign a role', message: `${res.fullName} has no role yet. Assign one now?`, confirmText: 'Assign role' });
+      if (next) assignRole(res);
+    }
   }
   async function editUser(u){
     await st.loadMasters();
@@ -128,9 +133,14 @@
       } });
     if (res){ ui.toast('User updated'); await st.loadMasters(true); A.changed('users'); }
   }
-  async function assignRole(u){
+  /* Roles the signed-in admin may hand out: Super Admin only by a Super Admin, otherwise roles whose permissions they also hold. */
+  function grantableRoles(current){
     const mine = new Set(NL.auth.permissions); const isSuper = NL.auth.hasRole('super_admin');
-    const roles = RB.ROLES.filter(r => r.id !== 'agent' || u.role === 'agent').filter(r => isSuper || (r.id !== 'super_admin' && r.permissions.every(p => mine.has(p))));
+    return RB.ROLES.filter(r => r.id !== 'agent' || current === 'agent').filter(r => isSuper || (r.id !== 'super_admin' && r.permissions.every(p => mine.has(p))));
+  }
+  async function assignRole(u){
+    const isSuper = NL.auth.hasRole('super_admin');
+    const roles = grantableRoles(u.role);
     const res = await ui.formModal({ title: `${u.role === 'unassigned' ? 'Assign role' : 'Change role'} · ${u.fullName}`, cols: 1, size: 'md',
       intro: html`Current role: ${ui.badge(RB.roleName(u.role), RB.roleColor(u.role).replace('b-', ''))}${isSuper ? '' : html`<div class="muted small">Only roles whose permissions you also hold are listed.</div>`}`,
       fields: [{ name: 'role', label: 'Role', type: 'select', required: true, options: roles.map(r => ({ value: r.id, label: r.name })), default: u.role === 'unassigned' ? '' : u.role }],
