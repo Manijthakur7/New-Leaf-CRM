@@ -1,0 +1,108 @@
+/* ============================================================
+   Authentication & account security UI — sign in, sign up, email
+   verification, password reset, profile security. Extends the existing
+   New Leaf login design (split brand panel + card).
+   ============================================================ */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+
+/* Layout */
+.auth-page .login-brand{position:sticky;top:0;max-height:100vh;}
+.auth-page .login-panel{min-height:100vh;align-items:flex-start;padding:48px 20px 28px;}
+@media (min-height:760px){ .auth-page .login-panel{align-items:center;} }
+.auth-stack{width:100%;max-width:430px;display:flex;flex-direction:column;gap:12px;}
+.auth-stack.wide{max-width:600px;}
+.auth-stack .login-card{max-width:none;gap:14px;padding:30px;}
+.auth-legal{text-align:center;font-size:11.5px;color:var(--text-faint);margin:0;}
+.auth-legal a{color:var(--text-muted);}
+.lb-secure{font-size:12.5px;opacity:.7;margin-top:18px;}
+.auth-mini-brand{display:none;align-items:center;gap:10px;margin-bottom:4px;}
+.auth-mini-brand small{display:block;font-size:11px;color:var(--text-muted);font-weight:500;}
+.auth-mini-brand b{font-size:14px;}
+.login-card h2:focus{outline:none;}
+.auth-sub{margin:-8px 0 0;font-size:13px;}
+.auth-switch{text-align:center;font-size:13px;margin:0;color:var(--text-muted);}
+
+/* Fields */
+.auth-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;}
+.auth-grid .af{grid-column:1/-1;} .auth-grid .af.half{grid-column:auto;}
+.auth-grid .full{grid-column:1/-1;}
+.af input:not([type=checkbox]),.af select{min-height:40px;font-size:14px;}
+.af .opt{font-weight:500;color:var(--text-faint);font-size:11px;}
+.label-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.label-row label{margin-bottom:5px;}
+.af .field-err:empty{display:none;}
+.af .field-err{display:flex;gap:4px;font-weight:600;}
+.af .field-err:not(:empty)::before{content:'⚠';}
+.check-field .field-err{margin-left:24px;}
+label.check.remember{align-items:flex-start;}
+label.check span{line-height:1.4;}
+.af input[aria-invalid=true],.af select[aria-invalid=true]{border-color:var(--red);}
+
+/* Password field */
+.pw-wrap input{padding-right:64px !important;}
+.pw-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:5px 9px;font-size:12px;color:var(--accent-2);background:transparent;border-radius:6px;}
+.pw-toggle:hover{background:var(--surface-3);}
+.pw-toggle:active:not(:disabled){transform:translateY(-50%);}
+.pw-meter{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px;}
+.pw-meter span{height:5px;border-radius:4px;background:var(--surface-3);transition:background .15s;}
+.pw-meter.s-weak span.on{background:var(--red);}
+.pw-meter.s-fair span.on{background:#d98a0b;}
+.pw-meter.s-good span.on{background:#2a8f5a;}
+.pw-meter.s-strong span.on{background:var(--green);}
+.pw-strength{font-size:12px;font-weight:700;color:var(--text-muted);margin-top:4px;min-height:16px;}
+.pw-reqs{list-style:none;padding:0;margin:6px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:12px;color:var(--text-muted);}
+.pw-reqs li{display:flex;gap:6px;align-items:baseline;}
+.pw-reqs li span[aria-hidden]{width:12px;text-align:center;font-weight:800;}
+.pw-reqs li.met{color:var(--green);}
+.pw-reqs li.rec em{font-style:normal;color:var(--text-faint);font-size:11px;}
+
+/* Alerts & states */
+.form-alert{display:block;}
+.form-alert:focus{outline:2px solid currentColor;outline-offset:1px;}
+.form-alert.ok{background:var(--green-soft);color:var(--green);border-color:#bfe3cc;}
+.form-alert.warn{background:var(--amber-soft);color:#7a4d06;border-color:#f0d3a3;}
+.form-alert .link-btn{color:inherit;text-decoration:underline;}
+.auth-divider{display:flex;align-items:center;gap:10px;color:var(--text-faint);font-size:12px;margin-top:4px;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.auth-alt{justify-content:center;}
+.btn-block.btn-link{justify-content:center;width:100%;padding:11px;}
+.auth-result{text-align:center;align-items:stretch;}
+.auth-result .loading-text{justify-content:center;margin:20px 0;}
+.result-ico{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin:6px auto 2px;}
+.result-ico.ok{background:var(--green-soft);color:var(--green);}
+.result-ico.bad{background:var(--red-soft);color:var(--red);}
+.result-ico.info{background:var(--blue-soft);color:var(--blue);}
+.demo-mail{border:1px dashed var(--amber);background:#fffaf0;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;margin-top:8px;}
+.demo-mail .dm-subject{font-weight:700;}
+.demo-mail a{align-self:flex-start;}
+.captcha-host{display:flex;flex-direction:column;gap:6px;}
+.captcha-slot{min-height:65px;}
+
+/* Profile & sessions */
+.inline-row{display:flex;gap:8px;align-items:center;}
+.inline-row input{flex:1;}
+.profile-form{padding:12px 16px 16px;}
+.narrow-card{max-width:560px;}
+.narrow-card .card-body{display:flex;flex-direction:column;gap:12px;}
+.session-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+.session-item{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface);}
+.session-item.current{border-color:#bfe3cc;background:#f6fbf8;}
+.session-list.compact .session-item{padding:7px 10px;}
+.sess-ico{font-size:22px;}
+.sess-main{flex:1;min-width:0;}
+.verified{color:var(--green);font-weight:800;}
+.unverified{font-size:10.5px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+
+/* Responsive */
+@media (max-width:1180px){ .auth-page .login-brand{padding:40px 36px;} }
+@media (max-width:760px){
+  .auth-page .login-brand{display:none;}
+  .auth-mini-brand{display:flex;}
+  .auth-page .login-panel{padding:20px 14px;min-height:100vh;align-items:flex-start;}
+  .auth-stack .login-card{padding:22px 18px;border-radius:14px;}
+  .auth-grid{grid-template-columns:1fr;}
+  .auth-grid .af.half{grid-column:1/-1;}
+  .pw-reqs{grid-template-columns:1fr;}
+  .session-item{flex-wrap:wrap;}
+}
+@media (prefers-reduced-motion:reduce){ .pw-meter span{transition:none;} }
