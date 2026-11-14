@@ -69,6 +69,12 @@
   const RB = NL.rbac;
   const STATUS_CLS = { ACTIVE: 'green', PENDING_VERIFICATION: 'amber', SUSPENDED: 'red', DISABLED: 'gray', LOCKED: 'red' };
   const statusBadge = (s) => ui.badge(RB.STATUS_LABEL[s] || s, STATUS_CLS[s] || 'gray');
+  /* Easy to read out or type, e.g. "Cedar-4827-Lotus" (16 chars, passes the password policy). */
+  function easyPassword(){
+    const W = ['Cedar', 'Maple', 'River', 'Lotus', 'Amber', 'Coral', 'Tiger', 'Falcon', 'Orchid', 'Summit', 'Harbor', 'Meadow', 'Saffron', 'Monsoon', 'Banyan', 'Jasmine'];
+    const a = new Uint32Array(3); crypto.getRandomValues(a);
+    return `${W[a[0] % W.length]}-${String(1000 + a[1] % 9000)}-${W[(a[2] >>> 4) % W.length]}`;
+  }
   function genPassword(){
     const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789-_!@#%';
     const a = new Uint32Array(18); crypto.getRandomValues(a);
@@ -79,6 +85,17 @@
     ui.confirm({ title: 'Demo mailbox', message: `Email to ${res.demoEmail.to}: “${res.demoEmail.subject}”`, detail: 'The in-browser demo has no mail server. Open the link as the recipient would.', confirmText: 'Open link' })
       .then(ok => { if (ok) window.open(res.demoEmail.link, '_blank', 'noopener'); });
   }
+  /* Create: only what is needed to sign in. Job title, employee ID, department and targets are under Edit. */
+  function newUserFields(){
+    const canRole = st.can('users.assign_role');
+    return [{ name: 'firstName', label: 'First name', required: true, autocomplete: 'off' }, { name: 'lastName', label: 'Last name', required: true },
+      { name: 'email', label: 'Email', type: 'email', required: true }, { name: 'mobile', label: 'Phone', type: 'tel', required: true },
+      canRole ? { name: 'role', label: 'Role', type: 'select', required: true, options: grantableRoles().filter(r => r.id !== 'unassigned').map(r => ({ value: r.id, label: r.name })), default: 'counsellor', placeholder: false } : null,
+      { name: 'teamId', label: 'Team', type: 'select', options: () => st.options.teams(), placeholder: '— No team —' },
+      { name: 'username', label: 'Username (optional)', placeholder: 'Leave blank to sign in with email', rules: [(v) => !v || /^[A-Za-z0-9._-]{3,30}$/.test(v) ? '' : '3–30 letters, numbers, dot, dash or underscore'] },
+      { name: 'password', label: 'Password', required: true, default: easyPassword(), autocomplete: 'off', help: 'Share this with the user. Edit it if you like (12+ characters).' },
+      { name: 'mustChangePassword', label: 'Ask them to choose their own password at first sign-in', type: 'checkbox', full: true }].filter(Boolean);
+  }
   function userFields(edit){
     return [{ name: 'firstName', label: 'First name', required: true, autocomplete: 'off' }, { name: 'lastName', label: 'Last name', required: true },
       { name: 'email', label: 'Work email', type: 'email', required: true, help: edit ? 'Changing it sends a verification link to the new address.' : '' },
@@ -86,13 +103,6 @@
       { name: 'mobile', label: 'Phone', type: 'tel', required: true }, { name: 'jobTitle', label: 'Job title' },
       { name: 'employeeId', label: 'Employee ID' }, { name: 'department', label: 'Department', type: 'select', options: DEPARTMENTS, placeholder: '— None —' },
       { name: 'teamId', label: 'Team', type: 'select', options: () => st.options.teams(), placeholder: '— No team —' },
-      edit || !st.can('users.assign_role') ? null : { name: 'role', label: 'Role', type: 'select', required: true, full: true, options: grantableRoles().filter(r => r.id !== 'unassigned').map(r => ({ value: r.id, label: r.name })), default: 'counsellor', placeholder: false,
-        help: 'Decides which modules and records this user can open. You can change it later from the Users list.' },
-      edit ? null : { section: 'Onboarding' },
-      edit ? null : { name: 'onboarding', label: 'How should they get access?', type: 'select', full: true, placeholder: false, default: 'invite',
-        options: [{ value: 'invite', label: 'Email an invitation to set their own password (recommended)' }, { value: 'password', label: 'Set a temporary password that I share securely' }] },
-      edit ? null : { name: 'password', label: 'Temporary password', full: true, default: genPassword(), autocomplete: 'new-password', help: 'They must change it at first sign-in. It is never shown again.' },
-      edit ? null : { name: 'markEmailVerified', label: 'I have confirmed this email address belongs to them', type: 'checkbox', full: true },
       edit ? { section: 'Targets' } : null,
       edit ? { name: 'tMonthlyAdmissions', label: 'Monthly admissions target', type: 'number', min: 0 } : null, edit ? { name: 'tDailyCalls', label: 'Daily calls target', type: 'number', min: 0 } : null,
       edit ? { name: 'tMonthlyApplications', label: 'Monthly applications target', type: 'number', min: 0 } : null].filter(Boolean);
@@ -100,18 +110,20 @@
   async function createUser(){
     await st.loadMasters();
     const canRole = st.can('users.assign_role');
-    const res = await ui.formModal({ title: 'Create user', size: 'lg', fields: userFields(false),
-      intro: canRole ? html`Choose the <b>Role</b> below — it decides what the user can access from their first sign-in.` : html`New users start as <span class="badge b-gray">Unassigned</span> until an administrator assigns a role.`,
-      onMount: (m, form) => {
-        const sel = form.querySelector('[name=onboarding]');
-        const sync = () => { const pw = sel.value === 'password'; ['password', 'markEmailVerified'].forEach(n => { const f = form.querySelector(`[data-field="${n}"]`); if (f) f.hidden = !pw; }); };
-        sel.addEventListener('change', sync); sync();
-      },
-      validate: (v) => { if (v.onboarding !== 'password') return {}; const r = NL.passwordPolicy.evaluate(v.password, { email: v.email, firstName: v.firstName, lastName: v.lastName, username: v.username }, {}); return r.ok ? {} : { password: r.errors.join(' ') }; },
-      submitLabel: 'Create user', onSubmit: (v) => { const body = Object.assign({}, v); if (body.onboarding !== 'password'){ delete body.password; delete body.markEmailVerified; } return S.userService.create(body); } });
+    let sent = null;
+    const res = await ui.formModal({ title: 'Create user', size: 'lg', fields: newUserFields(),
+      intro: html`The user is <b>active immediately</b> and can sign in with the email (or username) and password below.`,
+      validate: (v) => { const r = NL.passwordPolicy.evaluate(v.password, { email: v.email, firstName: v.firstName, lastName: v.lastName, username: v.username }, {}); return r.ok ? {} : { password: r.errors.join(' ') }; },
+      submitLabel: 'Create user', onSubmit: (v) => { sent = v; return S.userService.create(Object.assign({}, v, { onboarding: 'password', markEmailVerified: true, mustChangePassword: !!v.mustChangePassword })); } });
     if (!res) return;
-    ui.toast(res.accountStatus === 'PENDING_VERIFICATION' ? `Invitation sent to ${res.email}` : `User ${res.fullName} created`); showDemoMail(res);
     await st.loadMasters(true); A.changed('users');
+    // Sign-in details to hand over (shown once; the password is never stored in readable form).
+    const login = location.origin + location.pathname;
+    const details = [`Link: ${login}`, `Username: ${res.username || res.email}`, `Password: ${sent.password}`].join('\n');
+    const copy = await ui.confirm({ title: `${res.fullName} can sign in now`, message: `Role: ${RB.roleName(res.role)}. Share these details with them:`,
+      detail: details + (sent.mustChangePassword ? '\nThey will be asked to choose a new password at first sign-in.' : ''), confirmText: 'Copy details', cancelText: 'Close' });
+    const text = 'New Leaf CRM sign-in\n' + details;
+    if (copy){ try { await navigator.clipboard.writeText(text); ui.toast('Sign-in details copied'); } catch (e){ ui.toast('Copy failed — note the details down', 'warn'); } }
     if (res.role === 'unassigned' && canRole){
       const next = await ui.confirm({ title: 'Assign a role', message: `${res.fullName} has no role yet. Assign one now?`, confirmText: 'Assign role' });
       if (next) assignRole(res);
@@ -196,7 +208,7 @@
     const me = st.user(); const can = st.can;
     const canTouch = (u) => (u.role !== 'super_admin' || me.role === 'super_admin') && (me.role === 'super_admin' || RB.roleRank(u.role) <= RB.roleRank(me.role));
     const page = NL.listPage({ el, id: 'users', module: 'users', title: 'Users', sub: 'Create or invite users, assign roles and manage account access', exportName: 'users', what: 'users', refreshOn: ['users', 'teams'], initial: query,
-      actions: [{ label: 'Create / invite user', icon: '＋', primary: true, action: 'add', perm: 'users.create', onClick: createUser }],
+      actions: [{ label: 'Create user', icon: '＋', primary: true, action: 'add', perm: 'users.create', onClick: createUser }],
       segments: [{ key: 'all', label: 'All users', query: {} }, { key: 'unassigned', label: 'Awaiting role', query: { role: 'unassigned' } },
         { key: 'pending', label: 'Pending verification', query: { accountStatus: 'PENDING_VERIFICATION' } }, { key: 'active', label: 'Active', query: { accountStatus: 'ACTIVE' } },
         { key: 'suspended', label: 'Suspended', query: { accountStatus: 'SUSPENDED' } }, { key: 'disabled', label: 'Deactivated', query: { accountStatus: 'DISABLED' } }, { key: 'locked', label: 'Locked', query: { accountStatus: 'LOCKED' } }],

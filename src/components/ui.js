@@ -36,9 +36,9 @@
   function confirm(o){
     return new Promise((resolve) => {
       const m = modal({ title: o.title || 'Please confirm', size: 'sm', dismissable: true,
-        body: html`<div class="confirm-body">${o.danger ? html`<div class="confirm-ico danger">!</div>` : html`<div class="confirm-ico">?</div>`}<div><p class="confirm-msg">${o.message}</p>${o.detail ? html`<p class="muted small">${o.detail}</p>` : ''}
+        body: html`<div class="confirm-body">${o.danger ? html`<div class="confirm-ico danger">!</div>` : html`<div class="confirm-ico">?</div>`}<div><p class="confirm-msg">${o.message}</p>${o.detail ? html`<p class="muted small" style="white-space:pre-line">${o.detail}</p>` : ''}
           ${o.reason ? html`<div class="field"><label>${o.reasonLabel || 'Reason'}${o.reasonRequired ? ' *' : ''}</label><textarea id="cfReason" rows="3" placeholder="${o.reasonPlaceholder || ''}"></textarea><div class="field-err" id="cfErr"></div></div>` : ''}</div></div>`,
-        footer: html`<button class="btn-ghost" data-close>Cancel</button><button class="${o.danger ? 'btn-danger-solid' : 'btn-primary'}" id="cfOk">${o.confirmText || 'Confirm'}</button>`,
+        footer: html`<button class="btn-ghost" data-close>${o.cancelText || 'Cancel'}</button><button class="${o.danger ? 'btn-danger-solid' : 'btn-primary'}" id="cfOk">${o.confirmText || 'Confirm'}</button>`,
         onClose: (r) => resolve(r || false), autofocus: !!o.reason });
       $('#cfOk', m.el).addEventListener('click', () => {
         if (o.reason){ const v = $('#cfReason', m.el).value.trim(); if (o.reasonRequired && !v){ $('#cfErr', m.el).textContent = (o.reasonLabel || 'Reason') + ' is required'; return; } m.close({ reason: v }); }

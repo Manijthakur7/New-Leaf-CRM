@@ -472,16 +472,16 @@
     return out;
   });
   R('POST', '/users', 'users.create', (ctx) => {
-    const b = normalizeNames(H.pickFields(ctx.body, USER_FIELDS.concat(['password', 'onboarding', 'phone', 'role', 'markEmailVerified'])));
-    if (!b.username) b.username = lc(b.email);
+    const b = normalizeNames(H.pickFields(ctx.body, USER_FIELDS.concat(['password', 'onboarding', 'phone', 'role', 'markEmailVerified', 'mustChangePassword'])));
     validateUser(b);
+    if (!b.username) b.username = lc(b.email); // sign in with the email when no username is chosen
     const onboarding = b.onboarding === 'password' || (b.onboarding === undefined && b.password) ? 'password' : 'invite';
     const role = b.role ? (ctx.need('users.assign_role'), grantable(ctx, b.role)).id : RB.DEFAULT_ROLE;
     let cred = {};
     if (onboarding === 'password'){
       const r = PP.evaluate(b.password || '', { email: b.email, firstName: b.firstName, lastName: b.lastName, username: b.username }, policyOf());
       if (!r.ok) throw E(422, 'VALIDATION_ERROR', 'Temporary password: ' + r.errors[0], { errors: { password: r.errors.join(' ') } });
-      const salt = NL.crypto.randomSalt(); cred = { salt, passwordHash: NL.crypto.hashPassword(b.password, salt), mustChangePassword: true };
+      const salt = NL.crypto.randomSalt(); cred = { salt, passwordHash: NL.crypto.hashPassword(b.password, salt), mustChangePassword: b.mustChangePassword !== false };
     }
     const u = db.insert('users', Object.assign({}, b, cred, { password: undefined, onboarding: undefined, markEmailVerified: undefined, phone: undefined, role, accountStatus: onboarding === 'password' ? 'ACTIVE' : 'PENDING_VERIFICATION',
       status: onboarding === 'password' ? 'Active' : 'Inactive', emailVerifiedAt: onboarding === 'password' && b.markEmailVerified === true ? now() : null, department: b.department || '', employeeId: b.employeeId || '',
